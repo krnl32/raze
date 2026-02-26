@@ -18,6 +18,6 @@ struct raze_server {
 
 struct raze_server *raze_server_create(const struct raze_socket *sockconfig);
 void raze_server_destroy(struct raze_server *server);
-void raze_server_run(struct raze_server *server);
+int raze_server_run(struct raze_server *server);
 
 #endif

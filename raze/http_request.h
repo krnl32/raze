@@ -2,11 +2,8 @@
 #define _RAZE_HTTP_PARSER_H
 
 #include <stddef.h>
-#include <stdint.h>
 
-#define HTTP_URI_SIZE 4096
 #define HTTP_HEADER_SIZE 1024
-#define HTTP_HEADER_FIELD_SIZE 4096
 
 enum raze_http_method {
 	RAZE_HTTP_GET,
@@ -28,22 +25,25 @@ enum raze_http_version {
 };
 
 struct raze_http_header {
-	char key[HTTP_HEADER_FIELD_SIZE];
-	char value[HTTP_HEADER_FIELD_SIZE];
+	const char *key;
+	size_t key_len;
+	const char *value;
+	size_t value_len;
 };
 
 struct raze_http_request {
 	enum raze_http_method method;
-	char uri[HTTP_URI_SIZE];
+	const char *uri;
+	size_t uri_len;
 	enum raze_http_version version;
 	struct raze_http_header headers[HTTP_HEADER_SIZE];
-	uint32_t header_count;
+	size_t header_count;
 	const char *body;
 	size_t body_len;
 };
 
 struct raze_http_request *raze_http_request_create(const char *req_str, size_t req_len);
 void raze_http_request_destroy(struct raze_http_request *request);
-const char *raze_http_request_get_header(const struct raze_http_request *request, const char *key);
+const struct raze_http_header *raze_http_request_get_header(const struct raze_http_request *request, const char *key);
 
 #endif

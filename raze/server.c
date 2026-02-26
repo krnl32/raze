@@ -1,4 +1,5 @@
 #include "raze/server.h"
+#include "http_request.h"
 #include "raze/logger.h"
 
 #include <stdio.h>
@@ -71,7 +72,7 @@ void raze_server_destroy(struct raze_server *server)
 	}
 }
 
-void raze_server_run(struct raze_server *server)
+int raze_server_run(struct raze_server *server)
 {
 	while (1) {
 		raze_info("waiting for connections...");
@@ -100,9 +101,18 @@ void raze_server_run(struct raze_server *server)
 			continue;
 		}
 
-		raze_info("------------------buff start-----------------");
-		printf("%s", buff);
-		raze_info("------------------buff end-------------------");
+		struct raze_http_request *request = raze_http_request_create(buff, strlen(buff));
+		if (!request) {
+			raze_error("http request parser failed");
+			return -1;
+		}
+
+		printf("Request Parsed: Method: %d, URI: %.*s, Version: %d\n", request->method, (int)request->uri_len, request->uri, request->version);
+
+		if (send(clientfd, simple_response, strlen(simple_response), 0) < 0) {
+			perror("send");
+			continue;
+		}
 
 		if (send(clientfd, simple_response, strlen(simple_response), 0) < 0) {
 			perror("send");
@@ -112,4 +122,6 @@ void raze_server_run(struct raze_server *server)
 		shutdown(clientfd, SHUT_RDWR);
 		close(clientfd);
 	}
+
+	return 0;
 }

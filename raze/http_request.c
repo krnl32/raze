@@ -36,9 +36,10 @@ struct raze_http_request *raze_http_request_create(const char *req_str, size_t r
 	request->body = body_start;
 	request->body_len = (size_t)((req_str + req_len) - body_start);
 
-	const char *content_len_str = raze_http_request_get_header(request, "Content-Length");
-	if (content_len_str) {
-		size_t content_len = strtoul(content_len_str, NULL, 10);
+	const struct raze_http_header *content_len_header = raze_http_request_get_header(request, "Content-Length");
+	if (content_len_header) {
+		size_t content_len = strtoul(content_len_header->value, NULL, 10);
+
 		if (request->body_len < content_len) {
 			raze_error("bad http body length");
 			raze_error("http partial reading not supported");
@@ -57,11 +58,13 @@ void raze_http_request_destroy(struct raze_http_request *request)
 	}
 }
 
-const char *raze_http_request_get_header(const struct raze_http_request *request, const char *key)
+const struct raze_http_header *raze_http_request_get_header(const struct raze_http_request *request, const char *key)
 {
+	size_t key_len = strlen(key);
+
 	for (size_t i = 0; i < request->header_count; i++) {
-		if (!raze_strcasecmp(request->headers[i].key, key)) {
-			return request->headers[i].value;
+		if (request->headers[i].key_len == key_len && !raze_strncasecmp(request->headers[i].key, key, key_len)) {
+			return &request->headers[i];
 		}
 	}
 
@@ -109,14 +112,8 @@ static const char *raze_http_request_parse_request_line(struct raze_http_request
 		return NULL;
 	}
 
-	size_t uri_len = (size_t)(sp2 - uri_start);
-	if (uri_len >= HTTP_URI_SIZE) {
-		raze_error("bad http request uri size");
-		return NULL;
-	}
-
-	memcpy(request->uri, uri_start, uri_len);
-	request->uri[uri_len] = 0;
+	request->uri = uri_start;
+	request->uri_len = (size_t)(sp2 - uri_start);
 
 	// Parse HTTP Version
 	const char *version_start = (sp2 + 1);
@@ -155,7 +152,7 @@ static const char *raze_http_request_parse_request_line(struct raze_http_request
 const char *raze_http_request_parse_headers(struct raze_http_request *request, const char *header_start, const char *req_end)
 {
 	const char *current_line = header_start;
-	uint32_t current_header = request->header_count;
+	size_t current_header = request->header_count;
 
 	while (current_line + 1 < req_end) {
 		if (current_line[0] == '\r' && current_line[1] == '\n') {
@@ -181,14 +178,8 @@ const char *raze_http_request_parse_headers(struct raze_http_request *request, c
 			return NULL;
 		}
 
-		size_t key_len = (size_t)(colon - current_line);
-		if (key_len >= HTTP_HEADER_FIELD_SIZE) {
-			raze_error("bad http header key size");
-			return NULL;
-		}
-
-		memcpy(request->headers[current_header].key, current_line, key_len);
-		request->headers[current_header].key[key_len] = 0;
+		request->headers[current_header].key = current_line;
+		request->headers[current_header].key_len = (size_t)(colon - current_line);
 
 		// Parse Value
 		const char *value_start = colon + 1;
@@ -196,14 +187,8 @@ const char *raze_http_request_parse_headers(struct raze_http_request *request, c
 			value_start++;
 		}
 
-		size_t value_len = (size_t)(header_end - value_start);
-		if (value_len >= HTTP_HEADER_FIELD_SIZE) {
-			raze_error("bad http header value size");
-			return NULL;
-		}
-
-		memcpy(request->headers[current_header].value, value_start, value_len);
-		request->headers[current_header].value[value_len] = 0;
+		request->headers[current_header].value = value_start;
+		request->headers[current_header].value_len = (size_t)(header_end - value_start);
 
 		current_header++;
 		current_line = header_end + 2;
