@@ -1,0 +1,30 @@
+# CONFIG
+.env
+config.json
+
+# Folders
+Build/
+out/
+.idea/
+
+# VS
+.vscode/
+.vs/
+**.sln
+**.vcxproj
+**.vcxproj.filters
+**.vcxproj.user
+
+# Others
+CmakeSettings.json
+*.tmp
+*.log
+*.expand
+*.bin
+*.o
+*.d
+*.a
+*.so
+*.dll
+*.exe
+*a.out
