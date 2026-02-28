@@ -4,10 +4,20 @@ file(GLOB_RECURSE RAZE_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/logger.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/server.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/server.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_protocol.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_protocol.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http_request.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http_request.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/utility.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/utility.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/buffer.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/buffer.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/connection.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/connection.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_response.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_response.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_router.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http_router.c"
 )
 
 add_executable(${RAZE_TARGET_NAME} ${RAZE_SOURCES})

@@ -36,7 +36,7 @@ struct raze_http_request *raze_http_request_create(const char *req_str, size_t r
 	request->body = body_start;
 	request->body_len = (size_t)((req_str + req_len) - body_start);
 
-	const struct raze_http_header *content_len_header = raze_http_request_get_header(request, "Content-Length");
+	const struct raze_http_request_header *content_len_header = raze_http_request_get_header(request, "Content-Length");
 	if (content_len_header) {
 		size_t content_len = strtoul(content_len_header->value, NULL, 10);
 
@@ -58,7 +58,7 @@ void raze_http_request_destroy(struct raze_http_request *request)
 	}
 }
 
-const struct raze_http_header *raze_http_request_get_header(const struct raze_http_request *request, const char *key)
+const struct raze_http_request_header *raze_http_request_get_header(const struct raze_http_request *request, const char *key)
 {
 	size_t key_len = strlen(key);
 

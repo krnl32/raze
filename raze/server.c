@@ -1,6 +1,7 @@
 #include "raze/server.h"
-#include "http_request.h"
+#include "raze/http_request.h"
 #include "raze/logger.h"
+#include "raze/connection.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,12 +9,6 @@
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
-
-static const char *simple_response = "HTTP/1.1 200 OK\r\n"
-									 "Content-Type: text/plain\r\n"
-									 "Content-Length: 5\r\n"
-									 "\r\n"
-									 "Hello";
 
 struct raze_server *raze_server_create(const struct raze_socket *sockconfig)
 {
@@ -88,39 +83,14 @@ int raze_server_run(struct raze_server *server)
 
 		raze_info("connection accepted: %d", clientfd);
 
-		char buff[1024];
-		ssize_t bytes = recv(clientfd, buff, sizeof(buff) - 1, 0);
-		if (bytes < 0) {
-			perror("recv");
-			continue;
+		struct raze_connection connection;
+		raze_connection_init(&connection, clientfd);
+
+		if (raze_connection_handle(&connection) == -1) {
+			raze_error("raze_connection_handle failed");
 		}
 
-		if (bytes == 0) {
-			raze_info("client disconnected");
-			close(clientfd);
-			continue;
-		}
-
-		struct raze_http_request *request = raze_http_request_create(buff, strlen(buff));
-		if (!request) {
-			raze_error("http request parser failed");
-			return -1;
-		}
-
-		printf("Request Parsed: Method: %d, URI: %.*s, Version: %d\n", request->method, (int)request->uri_len, request->uri, request->version);
-
-		if (send(clientfd, simple_response, strlen(simple_response), 0) < 0) {
-			perror("send");
-			continue;
-		}
-
-		if (send(clientfd, simple_response, strlen(simple_response), 0) < 0) {
-			perror("send");
-			continue;
-		}
-
-		shutdown(clientfd, SHUT_RDWR);
-		close(clientfd);
+		raze_connection_deinit(&connection);
 	}
 
 	return 0;
