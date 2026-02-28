@@ -1,9 +1,9 @@
 #ifndef _RAZE_CONNECTION_H
 #define _RAZE_CONNECTION_H
 
-#include "raze/buffer.h"
-#include "raze/http_request.h"
-#include "raze/http_response.h"
+#include "raze/core/buffer.h"
+#include "raze/http/http_request.h"
+#include "raze/http/http_response.h"
 
 struct raze_connection {
 	int fd;

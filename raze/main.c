@@ -1,5 +1,5 @@
-#include "raze/logger.h"
-#include "raze/server.h"
+#include "raze/core/logger.h"
+#include "raze/server/server.h"
 
 int main(void)
 {

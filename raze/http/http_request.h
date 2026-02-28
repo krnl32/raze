@@ -1,7 +1,7 @@
 #ifndef _RAZE_HTTP_PARSER_H
 #define _RAZE_HTTP_PARSER_H
 
-#include "raze/http_protocol.h"
+#include "raze/http/http_protocol.h"
 
 #include <stddef.h>
 

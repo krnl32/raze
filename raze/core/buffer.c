@@ -1,4 +1,4 @@
-#include "raze/buffer.h"
+#include "raze/core/buffer.h"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,7 +1,7 @@
-#include "raze/connection.h"
-#include "raze/logger.h"
-#include "raze/buffer.h"
-#include "raze/http_router.h"
+#include "raze/server/connection.h"
+#include "raze/core/logger.h"
+#include "raze/core/buffer.h"
+#include "raze/http/http_router.h"
 
 #include <stdio.h>
 #include <stdlib.h>

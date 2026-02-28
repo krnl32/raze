@@ -1,5 +1,6 @@
 #ifndef _RAZE_BUFFER_H
 #define _RAZE_BUFFER_H
+
 #include <stddef.h>
 
 #define RAZE_BUFFER_DEFAULT_CAPACITY 4096

@@ -1,6 +1,6 @@
-#include "raze/http_request.h"
-#include "raze/logger.h"
-#include "raze/utility.h"
+#include "raze/http/http_request.h"
+#include "raze/core/logger.h"
+#include "raze/core/utility.h"
 
 #include <stdio.h>
 #include <stdlib.h>

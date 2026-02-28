@@ -1,8 +1,8 @@
 #ifndef _RAZE_HTTP_RESPONSE_H
 #define _RAZE_HTTP_RESPONSE_H
 
-#include "raze/http_protocol.h"
-#include "raze/buffer.h"
+#include "raze/http/http_protocol.h"
+#include "raze/core/buffer.h"
 
 #include <stddef.h>
 

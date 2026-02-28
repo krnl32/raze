@@ -1,4 +1,4 @@
-#include "raze/http_protocol.h"
+#include "raze/http/http_protocol.h"
 
 const char *raze_http_version_to_string(enum raze_http_version version)
 {

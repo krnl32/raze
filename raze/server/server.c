@@ -1,11 +1,9 @@
-#include "raze/server.h"
-#include "raze/http_request.h"
-#include "raze/logger.h"
-#include "raze/connection.h"
+#include "raze/server/server.h"
+#include "raze/server/connection.h"
+#include "raze/core/logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>

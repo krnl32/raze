@@ -1,4 +1,4 @@
-#include "raze/utility.h"
+#include "raze/core/utility.h"
 
 #include <ctype.h>
 

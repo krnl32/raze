@@ -1,5 +1,5 @@
-#include "raze/http_response.h"
-#include "raze/logger.h"
+#include "raze/http/http_response.h"
+#include "raze/core/logger.h"
 
 #include <stdio.h>
 #include <stdlib.h>
