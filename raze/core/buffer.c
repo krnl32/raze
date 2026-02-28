@@ -32,12 +32,12 @@ void raze_buffer_destroy(struct raze_buffer *buffer)
 	}
 }
 
-void raze_buffer_append(struct raze_buffer *buffer, const char *data, size_t len)
+void raze_buffer_append(struct raze_buffer *buffer, const char *data, size_t size)
 {
-	if ((buffer->size + len) > buffer->capacity) {
+	if ((buffer->size + size) > buffer->capacity) {
 		size_t new_capacity = buffer->capacity;
 
-		while (buffer->size + len > new_capacity) {
+		while (buffer->size + size > new_capacity) {
 			new_capacity *= 2;
 		}
 
@@ -51,6 +51,6 @@ void raze_buffer_append(struct raze_buffer *buffer, const char *data, size_t len
 		buffer->capacity = new_capacity;
 	}
 
-	memcpy(&buffer->data[buffer->size], data, len);
-	buffer->size += len;
+	memcpy(&buffer->data[buffer->size], data, size);
+	buffer->size += size;
 }

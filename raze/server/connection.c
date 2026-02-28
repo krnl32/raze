@@ -26,6 +26,7 @@ struct raze_connection *raze_connection_create(int fd)
 	connection->write_buffer = raze_buffer_create();
 	if (!connection->write_buffer) {
 		raze_error("raze_buffer_create failed");
+		raze_buffer_destroy(connection->read_buffer);
 		free(connection);
 		return NULL;
 	}
@@ -61,6 +62,7 @@ int raze_connection_init(struct raze_connection *connection, int fd)
 	connection->write_buffer = raze_buffer_create();
 	if (!connection->write_buffer) {
 		raze_error("raze_buffer_create failed");
+		raze_buffer_destroy(connection->read_buffer);
 		free(connection);
 		return -1;
 	}
@@ -85,17 +87,22 @@ void raze_connection_deinit(struct raze_connection *connection)
 
 int raze_connection_handle(struct raze_connection *connection)
 {
-	char buff[4097];
+	char buff[4096];
 
-	ssize_t bytes = recv(connection->fd, buff, sizeof(buff) - 1, 0);
+	ssize_t bytes = recv(connection->fd, buff, sizeof(buff), 0);
 	if (bytes < 0) {
 		perror("recv");
 		return -1;
 	}
 
+	if (bytes == 0) {
+		raze_error("connection closed");
+		return -1;
+	}
+
 	raze_buffer_append(connection->read_buffer, buff, (size_t)bytes);
 
-	connection->request = raze_http_request_create(connection->read_buffer->data, (size_t)bytes);
+	connection->request = raze_http_request_create(connection->read_buffer->data, connection->read_buffer->size);
 	if (!connection->request) {
 		raze_error("http request parser failed");
 		return -1;
