@@ -2,9 +2,11 @@
 #include "raze/core/logger.h"
 #include "raze/core/buffer.h"
 #include "raze/http/http_router.h"
+#include "raze/http/http_utility.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 
@@ -84,44 +86,83 @@ void raze_connection_deinit(struct raze_connection *connection)
 int raze_connection_handle(struct raze_connection *connection)
 {
 	bool keep_alive = true;
+	bool connection_closed = false;
 
 	while (keep_alive) {
-		raze_buffer_clear(connection->read_buffer);
-		raze_buffer_clear(connection->write_buffer);
-
-		if (raze_connection_handle_read(connection) == -1) {
-			perror("raze_connection_handle_read failed");
+		int read_status = raze_connection_handle_read(connection);
+		if (read_status == -1) {
+			raze_error("raze_connection_handle_read failed");
 			return -1;
 		}
 
-		connection->request = raze_http_request_create(connection->read_buffer->data, connection->read_buffer->size);
-		if (!connection->request) {
-			raze_error("http request parser failed");
-			return -1;
+		if (read_status == 1) {
+			connection_closed = true;
 		}
 
-		connection->response = raze_http_response_create();
-		if (!connection->response) {
-			raze_error("raze_http_response_create failed");
-			return -1;
+		while (1) {
+			uint8_t *data = connection->read_buffer->data;
+			size_t data_size = connection->read_buffer->size;
+
+			// Read Full Request
+			ssize_t header_end = raze_http_utility_find_header_end(data, data_size);
+			if (header_end == -1) {
+				break;
+			}
+
+			size_t content_len = raze_http_utility_extract_content_length(data, (size_t)header_end);
+
+			// Read Request Body
+			size_t total_required = (size_t)header_end + content_len;
+			if (data_size < total_required) {
+				break;
+			}
+
+			connection->request = raze_http_request_create((const char *)connection->read_buffer->data, total_required);
+			if (!connection->request) {
+				raze_error("http request parser failed");
+				return -1;
+			}
+
+			connection->response = raze_http_response_create();
+			if (!connection->response) {
+				raze_error("raze_http_response_create failed");
+				return -1;
+			}
+
+			http_router_route(connection->request, connection->response);
+			raze_buffer_clear(connection->write_buffer);
+
+			if (raze_http_response_build(connection->response, connection->write_buffer) == -1) {
+				raze_error("raze_http_response_build failed");
+				return -1;
+			}
+
+			if (raze_connection_handle_write(connection) == -1) {
+				raze_error("raze_connection_handle_write failed");
+				return -1;
+			}
+
+			keep_alive = connection->response->keep_alive;
+
+			raze_http_response_destroy(connection->response);
+			raze_http_request_destroy(connection->request);
+
+			// Pipelining
+			size_t remaining = data_size - total_required;
+			if (remaining > 0) {
+				memmove(connection->read_buffer->data, connection->read_buffer->data + total_required, remaining);
+			}
+
+			connection->read_buffer->size = remaining;
+
+			if (!keep_alive) {
+				break;
+			}
 		}
 
-		http_router_route(connection->request, connection->response);
-
-		if (raze_http_response_build(connection->response, connection->write_buffer) == -1) {
-			raze_error("raze_http_response_build failed");
-			return -1;
+		if (connection_closed) {
+			break;
 		}
-
-		if (raze_connection_handle_write(connection) == -1) {
-			perror("raze_connection_handle_write failed");
-			return -1;
-		}
-
-		keep_alive = connection->response->keep_alive;
-
-		raze_http_response_destroy(connection->response);
-		raze_http_request_destroy(connection->request);
 	}
 
 	return 0;
@@ -129,7 +170,7 @@ int raze_connection_handle(struct raze_connection *connection)
 
 int raze_connection_handle_read(struct raze_connection *connection)
 {
-	char buff[4096];
+	uint8_t buff[4096];
 
 	ssize_t bytes = recv(connection->fd, buff, sizeof(buff), 0);
 	if (bytes < 0) {
@@ -138,8 +179,8 @@ int raze_connection_handle_read(struct raze_connection *connection)
 	}
 
 	if (bytes == 0) {
-		raze_error("connection closed");
-		return -1;
+		raze_debug("connection closed");
+		return 1;
 	}
 
 	raze_buffer_append(connection->read_buffer, buff, (size_t)bytes);

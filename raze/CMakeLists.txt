@@ -15,6 +15,8 @@ file(GLOB_RECURSE RAZE_SOURCES
 
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_protocol.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_protocol.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_utility.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_utility.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_request.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_request.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_response.h"

@@ -32,10 +32,10 @@ void raze_buffer_destroy(struct raze_buffer *buffer)
 	}
 }
 
-void raze_buffer_append(struct raze_buffer *buffer, const char *data, size_t size)
+void raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t size)
 {
 	if ((buffer->size + size) > buffer->capacity) {
-		size_t new_capacity = buffer->capacity;
+		size_t new_capacity = buffer->capacity > 0 ? buffer->capacity : RAZE_BUFFER_DEFAULT_CAPACITY;
 
 		while (buffer->size + size > new_capacity) {
 			new_capacity *= 2;
