@@ -73,7 +73,9 @@ int raze_http_response_build(struct raze_http_response *response, struct raze_bu
 	raze_buffer_append(buffer, tmp, (size_t)len);
 
 	// Build Headers
-	len = snprintf(tmp, sizeof(tmp), "Content-Length: %zu\r\n", response->body_len);
+	const char *connection = response->keep_alive ? "keep-alive" : "close";
+
+	len = snprintf(tmp, sizeof(tmp), "Content-Length: %zu\r\nConnection: %s\r\n", response->body_len, connection);
 	if (len < 0 || (size_t)len >= sizeof(tmp)) {
 		raze_error("snprintf failed");
 		return -1;

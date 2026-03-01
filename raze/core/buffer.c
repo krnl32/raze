@@ -54,3 +54,8 @@ void raze_buffer_append(struct raze_buffer *buffer, const char *data, size_t siz
 	memcpy(&buffer->data[buffer->size], data, size);
 	buffer->size += size;
 }
+
+void raze_buffer_clear(struct raze_buffer *buffer)
+{
+	buffer->size = 0;
+}

@@ -4,6 +4,7 @@
 #include "raze/http/http_protocol.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #define HTTP_HEADER_SIZE 1024
 
@@ -23,10 +24,14 @@ struct raze_http_request {
 	size_t header_count;
 	const char *body;
 	size_t body_len;
+
+	// flags
+	bool keep_alive;
 };
 
 struct raze_http_request *raze_http_request_create(const char *req_str, size_t req_len);
 void raze_http_request_destroy(struct raze_http_request *request);
 const struct raze_http_request_header *raze_http_request_get_header(const struct raze_http_request *request, const char *key);
+bool raze_http_request_keep_alive(const struct raze_http_request *request);
 
 #endif

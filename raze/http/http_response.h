@@ -5,6 +5,7 @@
 #include "raze/core/buffer.h"
 
 #include <stddef.h>
+#include <stdbool.h>
 
 #define HTTP_HEADER_SIZE 1024
 #define HTTP_HEADER_FIELD_SIZE 1024
@@ -22,6 +23,9 @@ struct raze_http_response {
 	size_t header_count;
 	char body[HTTP_BODY_SIZE];
 	size_t body_len;
+
+	// flags
+	bool keep_alive;
 };
 
 struct raze_http_response *raze_http_response_create(void);

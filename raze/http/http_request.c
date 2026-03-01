@@ -48,6 +48,7 @@ struct raze_http_request *raze_http_request_create(const char *req_str, size_t r
 		}
 	}
 
+	request->keep_alive = raze_http_request_keep_alive(request);
 	return request;
 }
 
@@ -71,6 +72,26 @@ const struct raze_http_request_header *raze_http_request_get_header(const struct
 	return NULL;
 }
 
+bool raze_http_request_keep_alive(const struct raze_http_request *request)
+{
+	const struct raze_http_request_header *connection = raze_http_request_get_header(request, "Connection");
+
+	if (request->version == RAZE_HTTP_1_1) {
+		if (connection && connection->value_len == 5 && raze_strncasecmp(connection->value, "close", 5) == 0) {
+			return false;
+		}
+		return true;
+	}
+
+	if (request->version == RAZE_HTTP_1_0) {
+		if (connection && connection->value_len == 10 && raze_strncasecmp(connection->value, "keep-alive", 10) == 0) {
+			return true;
+		}
+		return false;
+	}
+
+	return false;
+}
 static const char *raze_http_request_parse_request_line(struct raze_http_request *request, const char *req_str, size_t req_len)
 {
 	// Parse Method

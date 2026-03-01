@@ -5,7 +5,6 @@
 void http_router_route(const struct raze_http_request *req, struct raze_http_response *res)
 {
 	if (req->method == RAZE_HTTP_GET && req->uri_len == 1 && req->uri[0] == '/') {
-		res->version = req->version;
 		res->status_code = RAZE_HTTP_OK;
 
 		raze_http_response_add_header(res, "Content-Type", "text/html");
@@ -16,7 +15,6 @@ void http_router_route(const struct raze_http_request *req, struct raze_http_res
 		memcpy(res->body, body, body_len);
 		res->body_len = body_len;
 	} else if (req->method == RAZE_HTTP_GET && req->uri_len == 6 && !memcmp(req->uri, "/hello", 6)) {
-		res->version = req->version;
 		res->status_code = RAZE_HTTP_OK;
 
 		raze_http_response_add_header(res, "Content-Type", "text/html");
@@ -27,7 +25,6 @@ void http_router_route(const struct raze_http_request *req, struct raze_http_res
 		memcpy(res->body, body, body_len);
 		res->body_len = body_len;
 	} else {
-		res->version = req->version;
 		res->status_code = RAZE_HTTP_NOT_FOUND;
 
 		raze_http_response_add_header(res, "Content-Type", "text/plain");
@@ -38,4 +35,7 @@ void http_router_route(const struct raze_http_request *req, struct raze_http_res
 		memcpy(res->body, body, body_len);
 		res->body_len = body_len;
 	}
+
+	res->version = req->version;
+	res->keep_alive = req->keep_alive;
 }

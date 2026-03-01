@@ -18,5 +18,7 @@ void raze_connection_destroy(struct raze_connection *connection);
 int raze_connection_init(struct raze_connection *connection, int fd);
 void raze_connection_deinit(struct raze_connection *connection);
 int raze_connection_handle(struct raze_connection *connection);
+int raze_connection_handle_read(struct raze_connection *connection);
+int raze_connection_handle_write(struct raze_connection *connection);
 
 #endif
