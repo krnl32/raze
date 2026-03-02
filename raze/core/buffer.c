@@ -4,35 +4,27 @@
 #include <stdlib.h>
 #include <string.h>
 
-struct raze_buffer *raze_buffer_create(void)
+int raze_buffer_init(struct raze_buffer *buffer)
 {
-	struct raze_buffer *buffer = malloc(sizeof(struct raze_buffer));
-	if (!buffer) {
-		perror("malloc");
-		return NULL;
-	}
-
 	buffer->data = malloc(RAZE_BUFFER_DEFAULT_CAPACITY);
 	if (!buffer->data) {
 		perror("malloc");
-		free(buffer);
-		return NULL;
+		return -1;
 	}
 
 	buffer->size = 0;
 	buffer->capacity = RAZE_BUFFER_DEFAULT_CAPACITY;
-	return buffer;
+	return 0;
 }
 
-void raze_buffer_destroy(struct raze_buffer *buffer)
+void raze_buffer_deinit(struct raze_buffer *buffer)
 {
 	if (buffer) {
 		free(buffer->data);
-		free(buffer);
 	}
 }
 
-void raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t size)
+int raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t size)
 {
 	if ((buffer->size + size) > buffer->capacity) {
 		size_t new_capacity = buffer->capacity > 0 ? buffer->capacity : RAZE_BUFFER_DEFAULT_CAPACITY;
@@ -44,7 +36,7 @@ void raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t siz
 		void *tmp = realloc(buffer->data, new_capacity);
 		if (!tmp) {
 			perror("realloc");
-			return;
+			return -1;
 		}
 
 		buffer->data = tmp;
@@ -53,6 +45,7 @@ void raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t siz
 
 	memcpy(&buffer->data[buffer->size], data, size);
 	buffer->size += size;
+	return 0;
 }
 
 void raze_buffer_clear(struct raze_buffer *buffer)

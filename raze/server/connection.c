@@ -10,60 +10,16 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-struct raze_connection *raze_connection_create(int fd)
-{
-	struct raze_connection *connection = malloc(sizeof(struct raze_connection));
-	if (!connection) {
-		perror("malloc");
-		return NULL;
-	}
-
-	connection->read_buffer = raze_buffer_create();
-	if (!connection->read_buffer) {
-		raze_error("raze_buffer_create failed");
-		free(connection);
-		return NULL;
-	}
-
-	connection->write_buffer = raze_buffer_create();
-	if (!connection->write_buffer) {
-		raze_error("raze_buffer_create failed");
-		raze_buffer_destroy(connection->read_buffer);
-		free(connection);
-		return NULL;
-	}
-
-	connection->fd = fd;
-	connection->request = NULL;
-	connection->response = NULL;
-	return connection;
-}
-
-void raze_connection_destroy(struct raze_connection *connection)
-{
-	if (connection) {
-		raze_buffer_destroy(connection->write_buffer);
-		raze_buffer_destroy(connection->read_buffer);
-		shutdown(connection->fd, SHUT_RDWR);
-		close(connection->fd);
-		free(connection);
-	}
-}
-
 int raze_connection_init(struct raze_connection *connection, int fd)
 {
-	connection->read_buffer = raze_buffer_create();
-	if (!connection->read_buffer) {
-		raze_error("raze_buffer_create failed");
-		free(connection);
+	if (raze_buffer_init(&connection->read_buffer) == -1) {
+		raze_error("raze_buffer_init failed");
 		return -1;
 	}
 
-	connection->write_buffer = raze_buffer_create();
-	if (!connection->write_buffer) {
-		raze_error("raze_buffer_create failed");
-		raze_buffer_destroy(connection->read_buffer);
-		free(connection);
+	if (raze_buffer_init(&connection->write_buffer) == -1) {
+		raze_error("raze_buffer_init failed");
+		raze_buffer_deinit(&connection->read_buffer);
 		return -1;
 	}
 
@@ -76,8 +32,8 @@ int raze_connection_init(struct raze_connection *connection, int fd)
 void raze_connection_deinit(struct raze_connection *connection)
 {
 	if (connection) {
-		raze_buffer_destroy(connection->write_buffer);
-		raze_buffer_destroy(connection->read_buffer);
+		raze_buffer_deinit(&connection->write_buffer);
+		raze_buffer_deinit(&connection->read_buffer);
 		shutdown(connection->fd, SHUT_RDWR);
 		close(connection->fd);
 	}
@@ -100,8 +56,8 @@ int raze_connection_handle(struct raze_connection *connection)
 		}
 
 		while (1) {
-			uint8_t *data = connection->read_buffer->data;
-			size_t data_size = connection->read_buffer->size;
+			uint8_t *data = connection->read_buffer.data;
+			size_t data_size = connection->read_buffer.size;
 
 			// Read Full Request
 			ssize_t header_end = raze_http_utility_find_header_end(data, data_size);
@@ -117,7 +73,7 @@ int raze_connection_handle(struct raze_connection *connection)
 				break;
 			}
 
-			connection->request = raze_http_request_create((const char *)connection->read_buffer->data, total_required);
+			connection->request = raze_http_request_create((const char *)connection->read_buffer.data, total_required);
 			if (!connection->request) {
 				raze_error("http request parser failed");
 				return -1;
@@ -130,9 +86,9 @@ int raze_connection_handle(struct raze_connection *connection)
 			}
 
 			http_router_route(connection->request, connection->response);
-			raze_buffer_clear(connection->write_buffer);
+			raze_buffer_clear(&connection->write_buffer);
 
-			if (raze_http_response_build(connection->response, connection->write_buffer) == -1) {
+			if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {
 				raze_error("raze_http_response_build failed");
 				return -1;
 			}
@@ -150,10 +106,10 @@ int raze_connection_handle(struct raze_connection *connection)
 			// Pipelining
 			size_t remaining = data_size - total_required;
 			if (remaining > 0) {
-				memmove(connection->read_buffer->data, connection->read_buffer->data + total_required, remaining);
+				memmove(connection->read_buffer.data, connection->read_buffer.data + total_required, remaining);
 			}
 
-			connection->read_buffer->size = remaining;
+			connection->read_buffer.size = remaining;
 
 			if (!keep_alive) {
 				break;
@@ -183,17 +139,17 @@ int raze_connection_handle_read(struct raze_connection *connection)
 		return 1;
 	}
 
-	raze_buffer_append(connection->read_buffer, buff, (size_t)bytes);
+	raze_buffer_append(&connection->read_buffer, buff, (size_t)bytes);
 	return 0;
 }
 
 int raze_connection_handle_write(struct raze_connection *connection)
 {
 	size_t total_sent = 0;
-	size_t send_size = connection->write_buffer->size;
+	size_t send_size = connection->write_buffer.size;
 
 	while (total_sent < send_size) {
-		ssize_t send_len = send(connection->fd, connection->write_buffer->data + total_sent, send_size - total_sent, 0);
+		ssize_t send_len = send(connection->fd, connection->write_buffer.data + total_sent, send_size - total_sent, 0);
 		if (send_len <= 0) {
 			perror("send");
 			return -1;

@@ -12,9 +12,10 @@ struct raze_buffer {
 	size_t capacity;
 };
 
-struct raze_buffer *raze_buffer_create(void);
-void raze_buffer_destroy(struct raze_buffer *buffer);
-void raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t size);
+
+int raze_buffer_init(struct raze_buffer *buffer);
+void raze_buffer_deinit(struct raze_buffer *buffer);
+int raze_buffer_append(struct raze_buffer *buffer, const void *data, size_t size);
 void raze_buffer_clear(struct raze_buffer *buffer);
 
 #endif
