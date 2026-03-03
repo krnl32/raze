@@ -126,9 +126,14 @@ int raze_connection_handle(struct raze_connection *connection)
 
 int raze_connection_handle_read(struct raze_connection *connection)
 {
-	uint8_t buff[4096];
+	struct raze_buffer *read_buffer = &connection->read_buffer;
+	if (raze_buffer_reserve(read_buffer, 4096) == -1) {
+		return -1;
+	}
 
-	ssize_t bytes = recv(connection->fd, buff, sizeof(buff), 0);
+	size_t writable = read_buffer->capacity - read_buffer->size;
+
+	ssize_t bytes = recv(connection->fd, read_buffer->data + read_buffer->size, writable, 0);
 	if (bytes < 0) {
 		perror("recv");
 		return -1;
@@ -139,7 +144,7 @@ int raze_connection_handle_read(struct raze_connection *connection)
 		return 1;
 	}
 
-	raze_buffer_append(&connection->read_buffer, buff, (size_t)bytes);
+	read_buffer->size += (size_t)bytes;
 	return 0;
 }
 
