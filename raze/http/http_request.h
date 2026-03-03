@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define HTTP_HEADER_SIZE 1024
+#define HTTP_REQUEST_HEADER_SIZE 64
 
 struct raze_http_request_header {
 	const char *key;
@@ -20,7 +20,7 @@ struct raze_http_request {
 	const char *uri;
 	size_t uri_len;
 	enum raze_http_version version;
-	struct raze_http_request_header headers[HTTP_HEADER_SIZE];
+	struct raze_http_request_header headers[HTTP_REQUEST_HEADER_SIZE];
 	size_t header_count;
 	const char *body;
 	size_t body_len;

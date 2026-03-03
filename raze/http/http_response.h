@@ -7,19 +7,20 @@
 #include <stddef.h>
 #include <stdbool.h>
 
-#define HTTP_HEADER_SIZE 1024
-#define HTTP_HEADER_FIELD_SIZE 1024
+#define HTTP_RESPONSE_HEADER_SIZE 20
+#define HTTP_HEADER_KEY_SIZE 128
+#define HTTP_HEADER_VALUE_SIZE 2048
 #define HTTP_BODY_SIZE 4096
 
 struct raze_http_response_header {
-	char key[HTTP_HEADER_FIELD_SIZE];
-	char value[HTTP_HEADER_FIELD_SIZE];
+	char key[HTTP_HEADER_KEY_SIZE];
+	char value[HTTP_HEADER_VALUE_SIZE];
 };
 
 struct raze_http_response {
 	enum raze_http_version version;
 	enum raze_http_status_code status_code;
-	struct raze_http_response_header headers[HTTP_HEADER_SIZE];
+	struct raze_http_response_header headers[HTTP_RESPONSE_HEADER_SIZE];
 	size_t header_count;
 	char body[HTTP_BODY_SIZE];
 	size_t body_len;

@@ -17,7 +17,8 @@ struct raze_http_request *raze_http_request_create(const char *req_str, size_t r
 		return NULL;
 	}
 
-	memset(request, 0, sizeof(*request));
+	request->header_count = 0;
+	request->keep_alive = false;
 
 	const char *header_start = raze_http_request_parse_request_line(request, req_str, req_len);
 	if (!header_start) {
@@ -181,7 +182,7 @@ const char *raze_http_request_parse_headers(struct raze_http_request *request, c
 			return current_line + 2;
 		}
 
-		if (current_header >= HTTP_HEADER_SIZE) {
+		if (current_header >= HTTP_REQUEST_HEADER_SIZE) {
 			raze_error("bad http header count");
 			return NULL;
 		}

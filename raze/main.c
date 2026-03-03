@@ -8,7 +8,7 @@ int main(void)
 	sockconfig.type = SOCK_STREAM;
 	sockconfig.protocol = 0;
 	sockconfig.host = INADDR_ANY;
-	sockconfig.port = 53422;
+	sockconfig.port = 8080;
 	sockconfig.backlog = 255;
 
 	struct raze_server *server = raze_server_create(&sockconfig);

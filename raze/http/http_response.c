@@ -29,17 +29,17 @@ void raze_http_response_destroy(struct raze_http_response *response)
 
 int raze_http_response_add_header(struct raze_http_response *response, const char *key, const char *value)
 {
-	if (response->header_count >= HTTP_HEADER_SIZE) {
+	if (response->header_count >= HTTP_RESPONSE_HEADER_SIZE) {
 		raze_error("bad http header count");
 		return -1;
 	}
 
 	struct raze_http_response_header *current_header = &response->headers[response->header_count++];
-	strncpy(current_header->key, key, HTTP_HEADER_FIELD_SIZE - 1);
-	current_header->key[HTTP_HEADER_FIELD_SIZE - 1] = 0;
+	strncpy(current_header->key, key, HTTP_HEADER_KEY_SIZE - 1);
+	current_header->key[HTTP_HEADER_KEY_SIZE - 1] = 0;
 
-	strncpy(current_header->value, value, HTTP_HEADER_FIELD_SIZE - 1);
-	current_header->value[HTTP_HEADER_FIELD_SIZE - 1] = 0;
+	strncpy(current_header->value, value, HTTP_HEADER_VALUE_SIZE - 1);
+	current_header->value[HTTP_HEADER_VALUE_SIZE - 1] = 0;
 	return 0;
 }
 
