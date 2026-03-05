@@ -3,6 +3,7 @@
 
 #include "raze/core/buffer.h"
 #include "raze/core/ring_buffer.h"
+#include "raze/http/http_router.h"
 #include "raze/http/http_response.h"
 #include "raze/http/http_parser.h"
 
@@ -21,10 +22,11 @@ struct raze_connection {
 	struct raze_buffer write_buffer;
 	struct raze_http_parser parser;
 
+	const struct raze_http_router *router;
 	struct raze_http_response *response;
 };
 
-int raze_connection_init(struct raze_connection *connection, int fd);
+int raze_connection_init(struct raze_connection *connection, int fd, const struct raze_http_router *router);
 void raze_connection_deinit(struct raze_connection *connection);
 int raze_connection_handle(struct raze_connection *connection);
 int raze_connection_handle_read(struct raze_connection *connection);

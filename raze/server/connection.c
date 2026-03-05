@@ -1,7 +1,6 @@
 #include "raze/server/connection.h"
 #include "raze/core/logger.h"
 #include "raze/core/buffer.h"
-#include "raze/http/http_router.h"
 #include "raze/http/http_utility.h"
 
 #include <stdio.h>
@@ -10,7 +9,7 @@
 #include <unistd.h>
 #include <sys/socket.h>
 
-int raze_connection_init(struct raze_connection *connection, int fd)
+int raze_connection_init(struct raze_connection *connection, int fd, const struct raze_http_router *router)
 {
 	if (raze_ring_buffer_init(&connection->read_buffer, RAZE_RING_BUFFER_DEFAULT_CAPACITY) == -1) {
 		raze_error("raze_ring_buffer_init failed");
@@ -32,6 +31,7 @@ int raze_connection_init(struct raze_connection *connection, int fd)
 
 	connection->fd = fd;
 	connection->state = RAZE_CONNECTION_STATE_READ;
+	connection->router = router;
 	connection->response = NULL;
 	return 0;
 }
@@ -97,7 +97,7 @@ int raze_connection_handle(struct raze_connection *connection)
 					return -1;
 				}
 
-				http_router_route(&connection->parser.request, connection->response);
+				raze_http_router_route(connection->router, &connection->parser.request, connection->response);
 				raze_buffer_clear(&connection->write_buffer);
 
 				if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {

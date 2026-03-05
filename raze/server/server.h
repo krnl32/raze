@@ -1,6 +1,8 @@
 #ifndef _RAZE_SERVER_H
 #define _RAZE_SERVER_H
 
+#include "raze/http/http_router.h"
+
 #include <netinet/in.h>
 
 struct raze_socket {
@@ -14,9 +16,10 @@ struct raze_socket {
 
 struct raze_server {
 	int sockfd;
+	const struct raze_http_router *router;
 };
 
-struct raze_server *raze_server_create(const struct raze_socket *sockconfig);
+struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_http_router *router);
 void raze_server_destroy(struct raze_server *server);
 int raze_server_run(struct raze_server *server);
 

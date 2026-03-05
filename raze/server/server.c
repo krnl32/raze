@@ -8,7 +8,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-struct raze_server *raze_server_create(const struct raze_socket *sockconfig)
+struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_http_router *router)
 {
 	struct raze_server *server = malloc(sizeof(struct raze_server));
 	if (!server) {
@@ -50,6 +50,7 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig)
 		return NULL;
 	}
 
+	server->router = router;
 	return server;
 }
 
@@ -82,7 +83,7 @@ int raze_server_run(struct raze_server *server)
 		raze_info("connection accepted: %d", clientfd);
 
 		struct raze_connection connection;
-		raze_connection_init(&connection, clientfd);
+		raze_connection_init(&connection, clientfd, server->router);
 
 		if (raze_connection_handle(&connection) == -1) {
 			raze_error("raze_connection_handle failed");
