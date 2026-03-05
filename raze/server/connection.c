@@ -65,6 +65,9 @@ int raze_connection_handle(struct raze_connection *connection)
 		while (1) {
 			uint8_t *data;
 			size_t data_size = raze_ring_buffer_read(&connection->read_buffer, &data);
+			if (data_size == 0) {
+				break;
+			}
 
 			enum http_parser_result res = raze_http_parser_parse(&connection->parser, (const char *)data, data_size);
 			if (res == RAZE_HTTP_RESULT_ERROR) {
@@ -100,8 +103,7 @@ int raze_connection_handle(struct raze_connection *connection)
 			raze_http_response_destroy(connection->response);
 
 			// Pipelining
-			size_t consumed = connection->parser.buffer_pos;
-			raze_ring_buffer_consume(&connection->read_buffer, consumed);
+			raze_ring_buffer_consume(&connection->read_buffer, connection->parser.buffer_pos);
 
 			raze_http_parser_reset(&connection->parser);
 
