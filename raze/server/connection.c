@@ -12,21 +12,21 @@
 
 int raze_connection_init(struct raze_connection *connection, int fd)
 {
-	if (raze_buffer_init(&connection->read_buffer) == -1) {
-		raze_error("raze_buffer_init failed");
+	if (raze_ring_buffer_init(&connection->read_buffer, RAZE_RING_BUFFER_DEFAULT_CAPACITY) == -1) {
+		raze_error("raze_ring_buffer_init failed");
 		return -1;
 	}
 
 	if (raze_buffer_init(&connection->write_buffer) == -1) {
 		raze_error("raze_buffer_init failed");
-		raze_buffer_deinit(&connection->read_buffer);
+		raze_ring_buffer_deinit(&connection->read_buffer);
 		return -1;
 	}
 
 	if (raze_http_parser_init(&connection->parser) == -1) {
 		raze_error("raze_http_parser_init failed");
 		raze_buffer_deinit(&connection->write_buffer);
-		raze_buffer_deinit(&connection->read_buffer);
+		raze_ring_buffer_deinit(&connection->read_buffer);
 		return -1;
 	}
 
@@ -40,7 +40,7 @@ void raze_connection_deinit(struct raze_connection *connection)
 	if (connection) {
 		raze_http_parser_deinit(&connection->parser);
 		raze_buffer_deinit(&connection->write_buffer);
-		raze_buffer_deinit(&connection->read_buffer);
+		raze_ring_buffer_deinit(&connection->read_buffer);
 		shutdown(connection->fd, SHUT_RDWR);
 		close(connection->fd);
 	}
@@ -63,8 +63,8 @@ int raze_connection_handle(struct raze_connection *connection)
 		}
 
 		while (1) {
-			uint8_t *data = connection->read_buffer.data;
-			size_t data_size = connection->read_buffer.size;
+			uint8_t *data;
+			size_t data_size = raze_ring_buffer_read(&connection->read_buffer, &data);
 
 			enum http_parser_result res = raze_http_parser_parse(&connection->parser, (const char *)data, data_size);
 			if (res == RAZE_HTTP_RESULT_ERROR) {
@@ -101,12 +101,8 @@ int raze_connection_handle(struct raze_connection *connection)
 
 			// Pipelining
 			size_t consumed = connection->parser.buffer_pos;
-			size_t remaining = data_size - consumed;
-			if (remaining > 0) {
-				memmove(connection->read_buffer.data, connection->read_buffer.data + consumed, remaining);
-			}
+			raze_ring_buffer_consume(&connection->read_buffer, consumed);
 
-			connection->read_buffer.size = remaining;
 			raze_http_parser_reset(&connection->parser);
 
 			if (!keep_alive) {
@@ -124,14 +120,16 @@ int raze_connection_handle(struct raze_connection *connection)
 
 int raze_connection_handle_read(struct raze_connection *connection)
 {
-	struct raze_buffer *read_buffer = &connection->read_buffer;
-	if (raze_buffer_reserve(read_buffer, 4096) == -1) {
+	struct raze_ring_buffer *read_buffer = &connection->read_buffer;
+	uint8_t *ptr;
+
+	size_t writable = raze_ring_buffer_write(read_buffer, &ptr);
+	if (!writable) {
+		raze_error("read buffer full");
 		return -1;
 	}
 
-	size_t writable = read_buffer->capacity - read_buffer->size;
-
-	ssize_t bytes = recv(connection->fd, read_buffer->data + read_buffer->size, writable, 0);
+	ssize_t bytes = recv(connection->fd, ptr, writable, 0);
 	if (bytes < 0) {
 		perror("recv");
 		return -1;
@@ -142,7 +140,7 @@ int raze_connection_handle_read(struct raze_connection *connection)
 		return 1;
 	}
 
-	read_buffer->size += (size_t)bytes;
+	read_buffer->head += (size_t)bytes;
 	return 0;
 }
 

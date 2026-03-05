@@ -5,6 +5,8 @@ file(GLOB_RECURSE RAZE_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/core/logger.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/core/buffer.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/core/buffer.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/core/ring_buffer.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/core/ring_buffer.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/core/utility.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/core/utility.c"
 

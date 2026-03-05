@@ -22,6 +22,7 @@ void raze_buffer_deinit(struct raze_buffer *buffer)
 {
 	if (buffer) {
 		free(buffer->data);
+		buffer->data = NULL;
 	}
 }
 
