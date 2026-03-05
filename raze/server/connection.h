@@ -6,8 +6,17 @@
 #include "raze/http/http_response.h"
 #include "raze/http/http_parser.h"
 
+enum raze_connection_state {
+	RAZE_CONNECTION_STATE_CLOSE,
+	RAZE_CONNECTION_STATE_READ,
+	RAZE_CONNECTION_STATE_WRITE,
+	RAZE_CONNECTION_STATE_PARSE,
+	RAZE_CONNECTION_STATE_PROCESS
+};
+
 struct raze_connection {
 	int fd;
+	enum raze_connection_state state;
 	struct raze_ring_buffer read_buffer;
 	struct raze_buffer write_buffer;
 	struct raze_http_parser parser;

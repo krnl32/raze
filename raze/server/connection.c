@@ -31,6 +31,7 @@ int raze_connection_init(struct raze_connection *connection, int fd)
 	}
 
 	connection->fd = fd;
+	connection->state = RAZE_CONNECTION_STATE_READ;
 	connection->response = NULL;
 	return 0;
 }
@@ -48,72 +49,85 @@ void raze_connection_deinit(struct raze_connection *connection)
 
 int raze_connection_handle(struct raze_connection *connection)
 {
-	bool keep_alive = true;
-	bool connection_closed = false;
+	while (connection->state != RAZE_CONNECTION_STATE_CLOSE) {
+		switch (connection->state) {
+			case RAZE_CONNECTION_STATE_READ: {
+				int read_status = raze_connection_handle_read(connection);
+				if (read_status == -1) {
+					raze_error("raze_connection_handle_read failed");
+					return -1;
+				}
 
-	while (keep_alive) {
-		int read_status = raze_connection_handle_read(connection);
-		if (read_status == -1) {
-			raze_error("raze_connection_handle_read failed");
-			return -1;
-		}
+				if (read_status == 1) {
+					connection->state = RAZE_CONNECTION_STATE_CLOSE;
+					break;
+				}
 
-		if (read_status == 1) {
-			connection_closed = true;
-		}
-
-		while (1) {
-			uint8_t *data;
-			size_t data_size = raze_ring_buffer_read(&connection->read_buffer, &data);
-			if (data_size == 0) {
+				connection->state = RAZE_CONNECTION_STATE_PARSE;
 				break;
 			}
 
-			enum http_parser_result res = raze_http_parser_parse(&connection->parser, (const char *)data, data_size);
-			if (res == RAZE_HTTP_RESULT_ERROR) {
-				raze_error("raze_http_parser_parse failed");
-				return -1;
-			}
+			case RAZE_CONNECTION_STATE_PARSE: {
+				uint8_t *data;
+				size_t data_size = raze_ring_buffer_read(&connection->read_buffer, &data);
+				if (data_size == 0) {
+					connection->state = RAZE_CONNECTION_STATE_READ;
+					break;
+				}
 
-			if (res == RAZE_HTTP_RESULT_INCOMPLETE) {
+				enum http_parser_result res = raze_http_parser_parse(&connection->parser, (const char *)data, data_size);
+				if (res == RAZE_HTTP_RESULT_ERROR) {
+					raze_error("raze_http_parser_parse failed");
+					return -1;
+				}
+
+				if (res == RAZE_HTTP_RESULT_INCOMPLETE) {
+					connection->state = RAZE_CONNECTION_STATE_READ;
+					break;
+				}
+
+				connection->state = RAZE_CONNECTION_STATE_PROCESS;
 				break;
 			}
 
-			connection->response = raze_http_response_create();
-			if (!connection->response) {
-				raze_error("raze_http_response_create failed");
-				return -1;
-			}
+			case RAZE_CONNECTION_STATE_PROCESS: {
+				connection->response = raze_http_response_create();
+				if (!connection->response) {
+					raze_error("raze_http_response_create failed");
+					return -1;
+				}
 
-			http_router_route(&connection->parser.request, connection->response);
-			raze_buffer_clear(&connection->write_buffer);
+				http_router_route(&connection->parser.request, connection->response);
+				raze_buffer_clear(&connection->write_buffer);
 
-			if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {
-				raze_error("raze_http_response_build failed");
-				return -1;
-			}
+				if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {
+					raze_error("raze_http_response_build failed");
+					return -1;
+				}
 
-			if (raze_connection_handle_write(connection) == -1) {
-				raze_error("raze_connection_handle_write failed");
-				return -1;
-			}
-
-			keep_alive = connection->response->keep_alive;
-
-			raze_http_response_destroy(connection->response);
-
-			// Pipelining
-			raze_ring_buffer_consume(&connection->read_buffer, connection->parser.buffer_pos);
-
-			raze_http_parser_reset(&connection->parser);
-
-			if (!keep_alive) {
+				connection->state = RAZE_CONNECTION_STATE_WRITE;
 				break;
 			}
-		}
 
-		if (connection_closed) {
-			break;
+			case RAZE_CONNECTION_STATE_WRITE: {
+				if (raze_connection_handle_write(connection) == -1) {
+					raze_error("raze_connection_handle_write failed");
+					return -1;
+				}
+
+				connection->state = (connection->response->keep_alive) ? RAZE_CONNECTION_STATE_READ : RAZE_CONNECTION_STATE_CLOSE;
+
+				raze_http_response_destroy(connection->response);
+
+				// Pipelining
+				raze_ring_buffer_consume(&connection->read_buffer, connection->parser.buffer_pos);
+				raze_http_parser_reset(&connection->parser);
+				break;
+			}
+
+			case RAZE_CONNECTION_STATE_CLOSE:
+			default:
+				break;
 		}
 	}
 
