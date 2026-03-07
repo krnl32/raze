@@ -47,8 +47,8 @@ int main(void)
 	sockconfig.domain = AF_INET;
 	sockconfig.type = SOCK_STREAM;
 	sockconfig.protocol = 0;
-	sockconfig.host = INADDR_ANY;
-	sockconfig.port = 8080;
+	sockconfig.host = "127.0.0.1";
+	sockconfig.port = "8080";
 	sockconfig.backlog = 255;
 
 	struct raze_server *server = raze_server_create(&sockconfig, &router);

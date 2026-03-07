@@ -1,3 +1,5 @@
+#define _POSIX_C_SOURCE 200112L
+
 #include "raze/server/server.h"
 #include "raze/server/connection.h"
 #include "raze/core/logger.h"
@@ -6,7 +8,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
-#include <arpa/inet.h>
+#include <netdb.h>
 
 struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_http_router *router)
 {
@@ -16,29 +18,49 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 		return NULL;
 	}
 
-	server->sockfd = socket(sockconfig->domain, sockconfig->type, sockconfig->protocol);
+	server->sockfd = -1;
+	server->router = router;
+
+	struct addrinfo *addr_list = NULL;
+	struct addrinfo hints = { 0 };
+	hints.ai_family = sockconfig->domain;
+	hints.ai_socktype = sockconfig->type;
+	hints.ai_protocol = sockconfig->protocol;
+	hints.ai_flags = AI_PASSIVE;
+
+	if (getaddrinfo(sockconfig->host, sockconfig->port, &hints, &addr_list) != 0) {
+		raze_error("getaddrinfo");
+		free(server);
+		return NULL;
+	}
+
+	struct addrinfo *addr;
+	for (addr = addr_list; addr != NULL; addr = addr->ai_next) {
+		server->sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
+		if (server->sockfd == -1) {
+			continue;
+		}
+
+		int opt = 1;
+		if (setsockopt(server->sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
+			perror("setsockopt");
+			close(server->sockfd);
+			server->sockfd = -1;
+			continue;
+		}
+
+		if (bind(server->sockfd, addr->ai_addr, addr->ai_addrlen) == 0) {
+			break;
+		}
+
+		close(server->sockfd);
+		server->sockfd = -1;
+	}
+
+	freeaddrinfo(addr_list);
+
 	if (server->sockfd == -1) {
-		perror("socket");
-		free(server);
-		return NULL;
-	}
-
-	int opt = 1;
-	if (setsockopt(server->sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) == -1) {
-		perror("setsockopt");
-		close(server->sockfd);
-		free(server);
-		return NULL;
-	}
-
-	struct sockaddr_in sa = { 0 };
-	sa.sin_family = sockconfig->domain;
-	sa.sin_addr.s_addr = htonl(sockconfig->host);
-	sa.sin_port = htons(sockconfig->port);
-
-	if (bind(server->sockfd, (struct sockaddr *)&sa, sizeof(sa)) == -1) {
 		perror("bind");
-		close(server->sockfd);
 		free(server);
 		return NULL;
 	}
@@ -50,7 +72,6 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 		return NULL;
 	}
 
-	server->router = router;
 	return server;
 }
 
@@ -71,10 +92,10 @@ int raze_server_run(struct raze_server *server)
 	while (1) {
 		raze_info("waiting for connections...");
 
-		struct sockaddr_in client_sa = { 0 };
-		socklen_t client_len = sizeof(struct sockaddr_in);
+		struct sockaddr_storage client_sa;
+		socklen_t client_len = sizeof(client_sa);
 
-		int clientfd = accept(server->sockfd, (struct sockaddr *)&client_sa, (socklen_t *)&client_len);
+		int clientfd = accept(server->sockfd, (struct sockaddr *)&client_sa, &client_len);
 		if (clientfd == -1) {
 			perror("accept");
 			continue;
