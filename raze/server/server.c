@@ -4,11 +4,17 @@
 #include "raze/server/connection.h"
 #include "raze/core/logger.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <fcntl.h>
+#include <sys/epoll.h>
+
+static int raze_socket_set_nonblock(int fd);
+static int raze_server_accept(struct raze_server *server);
 
 struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_http_router *router)
 {
@@ -34,10 +40,18 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 		return NULL;
 	}
 
+	// Setup Socket
 	struct addrinfo *addr;
 	for (addr = addr_list; addr != NULL; addr = addr->ai_next) {
 		server->sockfd = socket(addr->ai_family, addr->ai_socktype, addr->ai_protocol);
 		if (server->sockfd == -1) {
+			continue;
+		}
+
+		if (raze_socket_set_nonblock(server->sockfd) == -1) {
+			perror("fcntl");
+			close(server->sockfd);
+			server->sockfd = -1;
 			continue;
 		}
 
@@ -72,14 +86,37 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 		return NULL;
 	}
 
+	// Setup EPoll
+	server->epfd = epoll_create1(0);
+	if (server->epfd == -1) {
+		perror("epoll_create1");
+		close(server->sockfd);
+		free(server);
+		return NULL;
+	}
+
+	struct epoll_event ev;
+	ev.events = EPOLLIN;
+	ev.data.ptr = NULL;
+
+	if (epoll_ctl(server->epfd, EPOLL_CTL_ADD, server->sockfd, &ev) == -1) {
+		perror("epoll_ctl");
+		close(server->sockfd);
+		free(server);
+		return NULL;
+	}
+
 	return server;
 }
 
 void raze_server_destroy(struct raze_server *server)
 {
 	if (server) {
+		if (server->epfd != -1) {
+			close(server->epfd);
+		}
+
 		if (server->sockfd != -1) {
-			shutdown(server->sockfd, SHUT_RDWR);
 			close(server->sockfd);
 		}
 
@@ -89,28 +126,127 @@ void raze_server_destroy(struct raze_server *server)
 
 int raze_server_run(struct raze_server *server)
 {
-	while (1) {
-		raze_info("waiting for connections...");
+	raze_info("waiting for connections...");
+	struct epoll_event events[RAZE_EPOLL_EVENTS_MAX];
 
+	while (1) {
+		int evr = epoll_wait(server->epfd, events, RAZE_EPOLL_EVENTS_MAX, -1);
+		if (evr == -1) {
+			perror("epoll_wait");
+			continue;
+		}
+
+		for (int i = 0; i < evr; i++) {
+			// Handle Server
+			if (events[i].data.ptr == NULL) {
+				if (raze_server_accept(server) == -1) {
+					raze_error("raze_server_handle_accept failed");
+				}
+				continue;
+			}
+
+			// Handle Clients
+			struct raze_connection *connection = events[i].data.ptr;
+
+			// Handle Errors
+			if (events[i].events & (EPOLLERR | EPOLLHUP | EPOLLRDHUP)) {
+				if (epoll_ctl(server->epfd, EPOLL_CTL_DEL, connection->fd, NULL) == -1) {
+					perror("epoll_ctl");
+				}
+
+				raze_connection_destroy(connection);
+				continue;
+			}
+
+			// Handle Read
+			if ((events[i].events & EPOLLIN) && connection->state == RAZE_CONNECTION_STATE_READ) {
+				if (raze_connection_on_read(connection) == -1) {
+					raze_error("raze_connection_on_read failed");
+
+					if (epoll_ctl(server->epfd, EPOLL_CTL_DEL, connection->fd, NULL) == -1) {
+						perror("epoll_ctl");
+					}
+
+					raze_connection_destroy(connection);
+					continue;
+				}
+			}
+
+			// Handle Write
+			if ((events[i].events & EPOLLOUT) && connection->state == RAZE_CONNECTION_STATE_WRITE) {
+				if (raze_connection_on_write(connection) == -1) {
+					raze_error("raze_connection_on_write failed");
+
+					if (epoll_ctl(server->epfd, EPOLL_CTL_DEL, connection->fd, NULL) == -1) {
+						perror("epoll_ctl");
+					}
+
+					raze_connection_destroy(connection);
+					continue;
+				}
+
+				if (connection->state == RAZE_CONNECTION_STATE_CLOSE) {
+					if (epoll_ctl(server->epfd, EPOLL_CTL_DEL, connection->fd, NULL) == -1) {
+						perror("epoll_ctl");
+					}
+
+					raze_connection_destroy(connection);
+				}
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int raze_socket_set_nonblock(int fd)
+{
+	int flags = fcntl(fd, F_GETFL);
+	if (flags == -1) {
+		perror("fcntl");
+		return -1;
+	}
+	return fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+}
+
+static int raze_server_accept(struct raze_server *server)
+{
+	while (1) {
 		struct sockaddr_storage client_sa;
 		socklen_t client_len = sizeof(client_sa);
 
 		int clientfd = accept(server->sockfd, (struct sockaddr *)&client_sa, &client_len);
 		if (clientfd == -1) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				break;
+			}
+
 			perror("accept");
+			return -1;
+		}
+
+		if (raze_socket_set_nonblock(clientfd) == -1) {
+			perror("fcntl");
+			close(clientfd);
 			continue;
 		}
 
-		raze_info("connection accepted: %d", clientfd);
-
-		struct raze_connection connection;
-		raze_connection_init(&connection, clientfd, server->router);
-
-		if (raze_connection_handle(&connection) == -1) {
-			raze_error("raze_connection_handle failed");
+		struct raze_connection *connection = raze_connection_create(clientfd, server->router);
+		if (!connection) {
+			raze_error("raze_connection_create failed");
+			close(clientfd);
+			continue;
 		}
 
-		raze_connection_deinit(&connection);
+		struct epoll_event ev;
+		ev.events = EPOLLIN | EPOLLOUT | EPOLLRDHUP;
+		ev.data.ptr = connection;
+
+		if (epoll_ctl(server->epfd, EPOLL_CTL_ADD, clientfd, &ev) == -1) {
+			perror("epoll_ctl");
+			raze_connection_destroy(connection);
+			return -1;
+		}
 	}
 
 	return 0;

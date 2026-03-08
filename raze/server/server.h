@@ -5,17 +5,20 @@
 
 #include <netinet/in.h>
 
+#define RAZE_EPOLL_EVENTS_MAX 1024
+
 struct raze_socket {
 	uint16_t domain;
 	uint16_t type;
 	uint16_t protocol;
-	const char* host;
-	const char* port;
+	const char *host;
+	const char *port;
 	uint16_t backlog;
 };
 
 struct raze_server {
 	int sockfd;
+	int epfd;
 	const struct raze_http_router *router;
 };
 

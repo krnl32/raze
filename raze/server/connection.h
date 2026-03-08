@@ -8,15 +8,16 @@
 #include "raze/http/http_parser.h"
 
 enum raze_connection_state {
-	RAZE_CONNECTION_STATE_CLOSE,
 	RAZE_CONNECTION_STATE_READ,
-	RAZE_CONNECTION_STATE_WRITE,
 	RAZE_CONNECTION_STATE_PARSE,
-	RAZE_CONNECTION_STATE_PROCESS
+	RAZE_CONNECTION_STATE_PROCESS,
+	RAZE_CONNECTION_STATE_WRITE,
+	RAZE_CONNECTION_STATE_CLOSE
 };
 
 struct raze_connection {
 	int fd;
+	size_t write_offset;
 	enum raze_connection_state state;
 	struct raze_ring_buffer read_buffer;
 	struct raze_buffer write_buffer;
@@ -26,10 +27,9 @@ struct raze_connection {
 	struct raze_http_response *response;
 };
 
-int raze_connection_init(struct raze_connection *connection, int fd, const struct raze_http_router *router);
-void raze_connection_deinit(struct raze_connection *connection);
-int raze_connection_handle(struct raze_connection *connection);
-int raze_connection_handle_read(struct raze_connection *connection);
-int raze_connection_handle_write(struct raze_connection *connection);
+struct raze_connection *raze_connection_create(int fd, const struct raze_http_router *router);
+void raze_connection_destroy(struct raze_connection *connection);
+int raze_connection_on_read(struct raze_connection *connection);
+int raze_connection_on_write(struct raze_connection *connection);
 
 #endif
