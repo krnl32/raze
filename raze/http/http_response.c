@@ -13,10 +13,15 @@ struct raze_http_response *raze_http_response_create(void)
 		return NULL;
 	}
 
-	response->version = 0;
-	response->status_code = 0;
+	response->version = RAZE_HTTP_1_1;
+	response->status_code = RAZE_HTTP_OK;
 	response->header_count = 0;
 	response->body_len = 0;
+
+	response->keep_alive = false;
+
+	response->file_fd = -1;
+	response->file_size = 0;
 	return response;
 }
 
@@ -74,8 +79,9 @@ int raze_http_response_build(struct raze_http_response *response, struct raze_bu
 
 	// Build Headers
 	const char *connection = response->keep_alive ? "keep-alive" : "close";
+	size_t content_length = response->file_fd != -1 ? (size_t)response->file_size : response->body_len;
 
-	len = snprintf(tmp, sizeof(tmp), "Content-Length: %zu\r\nConnection: %s\r\n", response->body_len, connection);
+	len = snprintf(tmp, sizeof(tmp), "Content-Length: %zu\r\nConnection: %s\r\n", content_length, connection);
 	if (len < 0 || (size_t)len >= sizeof(tmp)) {
 		raze_error("snprintf failed");
 		return -1;

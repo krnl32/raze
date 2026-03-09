@@ -14,11 +14,11 @@ file(GLOB_RECURSE RAZE_SOURCES
 	"${CMAKE_CURRENT_SOURCE_DIR}/server/server.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/server/connection.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/server/connection.c"
+	"${CMAKE_CURRENT_SOURCE_DIR}/server/static.h"
+	"${CMAKE_CURRENT_SOURCE_DIR}/server/static.c"
 
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_protocol.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_protocol.c"
-	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_utility.h"
-	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_utility.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_parser.h"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_parser.c"
 	"${CMAKE_CURRENT_SOURCE_DIR}/http/http_request.h"

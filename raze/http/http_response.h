@@ -6,6 +6,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
+#include <sys/types.h>
 
 #define HTTP_RESPONSE_HEADER_SIZE 20
 #define HTTP_HEADER_KEY_SIZE 128
@@ -27,6 +28,10 @@ struct raze_http_response {
 
 	// flags
 	bool keep_alive;
+
+	// file
+	int file_fd;
+	off_t file_size;
 };
 
 struct raze_http_response *raze_http_response_create(void);

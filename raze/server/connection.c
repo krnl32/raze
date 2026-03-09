@@ -1,21 +1,20 @@
 #include "raze/server/connection.h"
 #include "raze/core/logger.h"
 #include "raze/core/buffer.h"
-#include "raze/http/http_utility.h"
 
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
+#include <sys/sendfile.h>
 
 static int raze_connection_handle_read(struct raze_connection *connection);
 static int raze_connection_handle_parse(struct raze_connection *connection);
 static int raze_connection_handle_process(struct raze_connection *connection);
 static int raze_connection_handle_write(struct raze_connection *connection);
 
-struct raze_connection *raze_connection_create(int fd, const struct raze_http_router *router)
+struct raze_connection *raze_connection_create(int fd, const struct raze_static *static_cfg, const struct raze_http_router *router)
 {
 	struct raze_connection *connection = malloc(sizeof(struct raze_connection));
 	if (!connection) {
@@ -47,8 +46,14 @@ struct raze_connection *raze_connection_create(int fd, const struct raze_http_ro
 	connection->fd = fd;
 	connection->write_offset = 0;
 	connection->state = RAZE_CONNECTION_STATE_READ;
-	connection->router = router;
 	connection->response = NULL;
+
+	connection->file_fd = -1;
+	connection->file_size = 0;
+	connection->file_offset = 0;
+
+	connection->static_cfg = static_cfg;
+	connection->router = router;
 	return connection;
 }
 
@@ -58,6 +63,7 @@ void raze_connection_destroy(struct raze_connection *connection)
 		raze_http_parser_deinit(&connection->parser);
 		raze_buffer_deinit(&connection->write_buffer);
 		raze_ring_buffer_deinit(&connection->read_buffer);
+		close(connection->file_fd);
 		close(connection->fd);
 		free(connection);
 	}
@@ -190,11 +196,38 @@ static int raze_connection_handle_process(struct raze_connection *connection)
 		return -1;
 	}
 
+	int res = raze_static_handle(connection->static_cfg, &connection->parser.request, connection->response);
+	if (res == -1) {
+		raze_error("raze_static_handle failed");
+		raze_http_response_destroy(connection->response);
+		return -1;
+	}
+
+	if (res == 0) {
+		connection->file_fd = connection->response->file_fd;
+		connection->file_size = connection->response->file_size;
+		connection->file_offset = 0;
+
+		raze_buffer_clear(&connection->write_buffer);
+
+		if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {
+			raze_error("raze_http_response_build failed");
+			raze_http_response_destroy(connection->response);
+			return -1;
+		}
+
+		connection->write_offset = 0;
+		connection->state = RAZE_CONNECTION_STATE_WRITE;
+		return 0;
+	}
+
 	raze_http_router_route(connection->router, &connection->parser.request, connection->response);
+
 	raze_buffer_clear(&connection->write_buffer);
 
 	if (raze_http_response_build(connection->response, &connection->write_buffer) == -1) {
 		raze_error("raze_http_response_build failed");
+		raze_http_response_destroy(connection->response);
 		return -1;
 	}
 
@@ -205,6 +238,7 @@ static int raze_connection_handle_process(struct raze_connection *connection)
 
 static int raze_connection_handle_write(struct raze_connection *connection)
 {
+	// send headers/body from buffer
 	uint8_t *data = connection->write_buffer.data;
 	size_t data_size = connection->write_buffer.size;
 
@@ -215,11 +249,28 @@ static int raze_connection_handle_write(struct raze_connection *connection)
 				return 0;
 			}
 
-			perror("send");
 			return -1;
 		}
 
 		connection->write_offset += (size_t)send_len;
+	}
+
+	// send file
+	if (connection->file_fd != -1) {
+		while (connection->file_offset < connection->file_size) {
+			ssize_t send_len = sendfile(connection->fd, connection->file_fd, &connection->file_offset, (size_t)(connection->file_size - connection->file_offset));
+			if (send_len < 0) {
+				if (errno == EAGAIN || errno == EWOULDBLOCK) {
+					return 0;
+				}
+
+				perror("sendfile");
+				return -1;
+			}
+		}
+
+		close(connection->file_fd);
+		connection->file_fd = -1;
 	}
 
 	return 1;

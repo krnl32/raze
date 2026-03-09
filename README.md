@@ -3,7 +3,7 @@
     <img src="Resources/Branding/BannerSmall.png" alt="Logo" width=300 height=180>
   </a>
 
-  <h3 align="center">raze</h3>
+<h3 align="center">raze</h3>
 
   <p align="center">
     Raze Web Server
@@ -16,22 +16,39 @@
 
 ## About
 
-Web Server.
+Http Web Server.
 
 ## Features
 
-- ....
+- Event-driven architecture using **epoll**
+- Non-blocking socket I/O
+- HTTP/1.0 and HTTP/1.1 request parsing
+- Stateful HTTP parser implementation
+- Support for standard HTTP methods (GET, HEAD, POST, PUT, DELETE, CONNECT, OPTIONS, TRACE)
+- HTTP persistent connections (keep-alive)
+- HTTP request pipelining
+- Configurable HTTP router for request handlers
+- Static file serving `sendfile`
+- Basic MIME type detection
+- Chunked transfer encoding parsing
+- Lightweight structured logging system
 
 ## Build
+
 Please read through our [building guidelines](https://github.com/krnl32/raze/blob/master/BUILDING.md).
 
 ## Bugs and feature requests
 
-Have a bug or a feature request? Please first read the [issue guidelines](https://github.com/krnl32/raze/blob/master/CONTRIBUTING.md) and search for existing and closed issues. If your problem or idea is not addressed yet, [please open a new issue](https://github.com/krnl32/raze/issues/new).
+Have a bug or a feature request? Please first read
+the [issue guidelines](https://github.com/krnl32/raze/blob/master/CONTRIBUTING.md) and search for existing and closed
+issues. If your problem or idea is not addressed
+yet, [please open a new issue](https://github.com/krnl32/raze/issues/new).
 
 ## Contributing
 
-Please read through our [contributing guidelines](https://github.com/krnl32/raze/blob/master/CONTRIBUTING.md). Included are directions for opening issues, coding standards, and notes on development.
+Please read through our [contributing guidelines](https://github.com/krnl32/raze/blob/master/CONTRIBUTING.md). Included
+are directions for opening issues, coding standards, and notes on development.
+
 ## Authors
 
 - [**krnl32**](https://github.com/krnl32)

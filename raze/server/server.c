@@ -16,7 +16,7 @@
 static int raze_socket_set_nonblock(int fd);
 static int raze_server_accept(struct raze_server *server);
 
-struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_http_router *router)
+struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_static *static_cfg, const struct raze_http_router *router)
 {
 	struct raze_server *server = malloc(sizeof(struct raze_server));
 	if (!server) {
@@ -26,6 +26,7 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 
 	server->sockfd = -1;
 	server->router = router;
+	server->static_cfg = static_cfg;
 
 	struct addrinfo *addr_list = NULL;
 	struct addrinfo hints = { 0 };
@@ -231,7 +232,7 @@ static int raze_server_accept(struct raze_server *server)
 			continue;
 		}
 
-		struct raze_connection *connection = raze_connection_create(clientfd, server->router);
+		struct raze_connection *connection = raze_connection_create(clientfd, server->static_cfg, server->router);
 		if (!connection) {
 			raze_error("raze_connection_create failed");
 			close(clientfd);
