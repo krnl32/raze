@@ -12,6 +12,8 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/epoll.h>
+#include <sys/eventfd.h>
+#include <asm-generic/socket.h>
 
 static int raze_socket_set_nonblock(int fd);
 static int raze_server_accept(struct raze_server *server);
@@ -64,6 +66,13 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 			continue;
 		}
 
+		if (setsockopt(server->sockfd, SOL_SOCKET, SO_REUSEPORT, &opt, sizeof(opt)) == -1) {
+			perror("setsockopt");
+			close(server->sockfd);
+			server->sockfd = -1;
+			continue;
+		}
+
 		if (bind(server->sockfd, addr->ai_addr, addr->ai_addrlen) == 0) {
 			break;
 		}
@@ -102,17 +111,45 @@ struct raze_server *raze_server_create(const struct raze_socket *sockconfig, con
 
 	if (epoll_ctl(server->epfd, EPOLL_CTL_ADD, server->sockfd, &ev) == -1) {
 		perror("epoll_ctl");
+		close(server->epfd);
 		close(server->sockfd);
 		free(server);
 		return NULL;
 	}
 
+	// Setup Eventfd
+	server->evfd = eventfd(0, EFD_NONBLOCK | EFD_CLOEXEC);
+	if (server->evfd == -1) {
+		perror("eventfd");
+		close(server->epfd);
+		close(server->sockfd);
+		free(server);
+		return NULL;
+	}
+
+	ev.events = EPOLLIN;
+	ev.data.ptr = server;
+
+	if (epoll_ctl(server->epfd, EPOLL_CTL_ADD, server->evfd, &ev) == -1) {
+		perror("epoll_ctl");
+		close(server->evfd);
+		close(server->epfd);
+		close(server->sockfd);
+		free(server);
+		return NULL;
+	}
+
+	server->start = true;
 	return server;
 }
 
 void raze_server_destroy(struct raze_server *server)
 {
 	if (server) {
+		if (server->evfd != -1) {
+			close(server->evfd);
+		}
+
 		if (server->epfd != -1) {
 			close(server->epfd);
 		}
@@ -130,7 +167,7 @@ int raze_server_run(struct raze_server *server)
 	raze_info("waiting for connections...");
 	struct epoll_event events[RAZE_EPOLL_EVENTS_MAX];
 
-	while (1) {
+	while (__atomic_load_n(&server->start, __ATOMIC_SEQ_CST)) {
 		int evr = epoll_wait(server->epfd, events, RAZE_EPOLL_EVENTS_MAX, -1);
 		if (evr == -1) {
 			perror("epoll_wait");
@@ -142,6 +179,17 @@ int raze_server_run(struct raze_server *server)
 			if (events[i].data.ptr == NULL) {
 				if (raze_server_accept(server) == -1) {
 					raze_error("raze_server_handle_accept failed");
+				}
+				continue;
+			}
+
+			// Handle Eventfd
+			if (events[i].data.ptr == server) {
+				uint64_t val;
+				if (read(server->evfd, &val, sizeof(val)) == -1) {
+					if (errno != EAGAIN) {
+						perror("eventfd read");
+					}
 				}
 				continue;
 			}
@@ -198,6 +246,13 @@ int raze_server_run(struct raze_server *server)
 	}
 
 	return 0;
+}
+
+void raze_server_stop(struct raze_server *server)
+{
+	__atomic_store_n(&server->start, false, __ATOMIC_SEQ_CST);
+	uint64_t val = 1;
+	write(server->evfd, &val, sizeof(val));
 }
 
 static int raze_socket_set_nonblock(int fd)

@@ -18,8 +18,10 @@ struct raze_socket {
 };
 
 struct raze_server {
+	bool start;
 	int sockfd;
 	int epfd;
+	int evfd;
 
 	const struct raze_static *static_cfg;
 	const struct raze_http_router *router;
@@ -28,5 +30,6 @@ struct raze_server {
 struct raze_server *raze_server_create(const struct raze_socket *sockconfig, const struct raze_static *static_cfg, const struct raze_http_router *router);
 void raze_server_destroy(struct raze_server *server);
 int raze_server_run(struct raze_server *server);
+void raze_server_stop(struct raze_server *server);
 
 #endif

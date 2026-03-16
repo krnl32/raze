@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #define _POSIX_C_SOURCE 199309L
 
 #include "raze/core/ring_buffer.h"
@@ -17,12 +18,11 @@ int raze_ring_buffer_init(struct raze_ring_buffer *buffer, size_t capacity)
 		return -1;
 	}
 
-	int fd = shm_open("/raze_rb1", O_RDWR | O_CREAT | O_EXCL, 0600);
+	int fd = memfd_create("raze_rb", MFD_CLOEXEC);
 	if (fd == -1) {
-		perror("shm_open");
+		perror("memfd_create");
 		return -1;
 	}
-	shm_unlink("/raze_rb1");
 
 	if (ftruncate(fd, (off_t)capacity) == -1) {
 		perror("ftruncate");
@@ -39,12 +39,14 @@ int raze_ring_buffer_init(struct raze_ring_buffer *buffer, size_t capacity)
 
 	if (mmap(addr, capacity, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_SHARED, fd, 0) == MAP_FAILED) {
 		perror("mmap first half");
+		munmap(addr, capacity * 2);
 		close(fd);
 		return -1;
 	}
 
 	if (mmap(addr + capacity, capacity, PROT_READ | PROT_WRITE, MAP_FIXED | MAP_SHARED, fd, 0) == MAP_FAILED) {
 		perror("mmap second half");
+		munmap(addr, capacity * 2);
 		close(fd);
 		return -1;
 	}
